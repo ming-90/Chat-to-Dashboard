@@ -2,6 +2,10 @@
 
 자연어로 분석 요청을 하면 LLM이 **대시보드 스펙(DashboardSpec)** 을 만들고, 앱이 Chart.js로 미리보기를 렌더링합니다. 발행한 리포트는 `/reports/{id}.html` 에 저장되며, 열 때마다 등록된 CRUD API로 PostgreSQL 데이터를 다시 불러옵니다.
 
+## 데모
+<img width="1280" height="720" alt="chat_to_dashboard" src="https://github.com/user-attachments/assets/72cd0408-e02c-4af3-99fc-b02e4d40a1f8" />
+
+
 ## 포함 기능
 
 - Contoso BI 샘플 데이터(PostgreSQL)
