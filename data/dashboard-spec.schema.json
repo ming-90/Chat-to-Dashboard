@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chat-to-dashboard.local/schemas/dashboard-spec.schema.json",
+  "title": "DashboardSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "title", "dataSources", "transforms", "widgets"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "dataSources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dataSource"
+      }
+    },
+    "transforms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/transform"
+      }
+    },
+    "widgets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/widget"
+      }
+    }
+  },
+  "$defs": {
+    "filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "op"],
+      "properties": {
+        "field": { "type": "string" },
+        "op": {
+          "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "between", "like", "isnull"]
+        },
+        "value": {
+          "type": ["string", "number", "boolean"]
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": ["string", "number"]
+          }
+        }
+      }
+    },
+    "dataSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "table", "path"],
+      "properties": {
+        "id": { "type": "string" },
+        "table": { "type": "string" },
+        "path": { "type": "string" },
+        "description": { "type": "string" },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/filter" }
+        }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "aggregate"],
+      "properties": {
+        "id": { "type": "string" },
+        "aggregate": {
+          "enum": ["sum", "avg", "min", "max", "count", "count_distinct"]
+        },
+        "field": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "enum": ["join", "deriveDateBucket", "groupBy", "sort", "topN"]
+        },
+        "source": { "type": "string" },
+        "left": { "type": "string" },
+        "right": { "type": "string" },
+        "leftKey": { "type": "string" },
+        "rightKey": { "type": "string" },
+        "dateField": { "type": "string" },
+        "grain": {
+          "enum": ["day", "week", "month", "quarter", "year"]
+        },
+        "groupBy": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "metrics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/metric" }
+        },
+        "sortBy": { "type": "string" },
+        "direction": {
+          "enum": ["asc", "desc"]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "widget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "title", "size", "source"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "enum": ["kpi", "lineChart", "barChart", "pieChart", "table"]
+        },
+        "title": { "type": "string" },
+        "size": {
+          "enum": ["small", "medium", "large"]
+        },
+        "source": { "type": "string" },
+        "description": { "type": "string" },
+        "x": { "type": "string" },
+        "y": { "type": "string" },
+        "series": {
+          "type": "string",
+          "description": "Optional dimension for multi-series line/bar charts (for example category_name)."
+        },
+        "labelField": { "type": "string" },
+        "valueField": { "type": "string" },
+        "columns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "metric": {
+          "$ref": "#/$defs/metric"
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean"]
+          }
+        }
+      }
+    }
+  }
+}
