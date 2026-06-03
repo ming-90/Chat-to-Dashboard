@@ -1,0 +1,289 @@
+{
+  "name": "contoso",
+  "description": "Synthetic Contoso business intelligence dataset for sales, orders, products, customers, stores, calendar, and foreign exchange analysis.",
+  "source": "R package contoso",
+  "llmUsage": {
+    "preferredFormat": "json",
+    "notes": [
+      "Use this file as the source of truth for LLM schema context.",
+      "Prefer sales for revenue and margin analysis because it already denormalizes order, product, customer, store, and financial measures.",
+      "Use orders plus orderrows when the analysis needs order headers and line items separately.",
+      "Use calendar for date grouping by year, quarter, month, weekday, or working day.",
+      "Generated frontend code should only call registered read/list APIs and should not construct SQL directly."
+    ]
+  },
+  "apiCatalog": {
+    "basePath": "/api",
+    "listQuery": {
+      "reservedParams": ["sort", "page", "pageSize", "limit"],
+      "filterOperators": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "between", "like", "isnull"],
+      "examples": [
+        "/api/sales?limit=10000&currency=USD",
+        "/api/sales?order_date__gte=2020-01-01&order_date__lte=2020-12-31",
+        "/api/product?category_name__in=Electronics,Computers"
+      ],
+      "aggregateParams": {
+        "groupBy": "Comma-separated group fields. Virtual time fields month, year, quarter, date_bucket bucket order_date automatically.",
+        "grain": "day | week | month | quarter | year. Defaults to month.",
+        "metrics": "Comma-separated aggregates such as sum:net_revenue,sum:gross_revenue,count"
+      },
+      "notes": [
+        "Plain column query params use equality, for example country=US or country_full=United States.",
+        "Use /api/customer?groupBy=country&metrics=count&limit=50 for customers by country. Do not use limit=1.",
+        "Use field__op syntax for other operators, for example order_date__gte=2020-01-01.",
+        "Use field__between=start,end for date ranges.",
+        "Use field__in=a,b,c for multi-value filters.",
+        "Use /api/sales?groupBy=month&grain=month&metrics=sum:net_revenue&limit=200 for monthly revenue trends.",
+        "category_name is on product; the sales API auto-joins product when groupBy includes category_name.",
+        "Use /api/sales?groupBy=month,category_name&grain=month&metrics=sum:net_revenue&limit=500 for category revenue trends."
+      ]
+    },
+    "endpoints": [
+      { "table": "calendar", "operation": "list", "method": "GET", "path": "/api/calendar" },
+      { "table": "customer", "operation": "list", "method": "GET", "path": "/api/customer" },
+      { "table": "fx", "operation": "list", "method": "GET", "path": "/api/fx" },
+      { "table": "orderrows", "operation": "list", "method": "GET", "path": "/api/orderrows" },
+      { "table": "orders", "operation": "list", "method": "GET", "path": "/api/orders" },
+      { "table": "product", "operation": "list", "method": "GET", "path": "/api/product" },
+      { "table": "sales", "operation": "list", "method": "GET", "path": "/api/sales" },
+      { "table": "store", "operation": "list", "method": "GET", "path": "/api/store" }
+    ]
+  },
+  "relationships": [
+    {
+      "from": { "table": "sales", "column": "order_key" },
+      "to": { "table": "orders", "column": "order_key" },
+      "type": "many-to-one",
+      "description": "Sales rows belong to an order."
+    },
+    {
+      "from": { "table": "sales", "column": "customer_key" },
+      "to": { "table": "customer", "column": "customer_key" },
+      "type": "many-to-one",
+      "description": "Sales rows belong to a customer."
+    },
+    {
+      "from": { "table": "sales", "column": "product_key" },
+      "to": { "table": "product", "column": "product_key" },
+      "type": "many-to-one",
+      "description": "Sales rows belong to a product."
+    },
+    {
+      "from": { "table": "sales", "column": "store_key" },
+      "to": { "table": "store", "column": "store_key" },
+      "type": "many-to-one",
+      "description": "Sales rows belong to a store."
+    },
+    {
+      "from": { "table": "sales", "column": "order_date" },
+      "to": { "table": "calendar", "column": "date" },
+      "type": "many-to-one",
+      "description": "Sales can be grouped by calendar attributes through order_date."
+    },
+    {
+      "from": { "table": "orders", "column": "customer_key" },
+      "to": { "table": "customer", "column": "customer_key" },
+      "type": "many-to-one",
+      "description": "Orders belong to a customer."
+    },
+    {
+      "from": { "table": "orders", "column": "store_key" },
+      "to": { "table": "store", "column": "store_key" },
+      "type": "many-to-one",
+      "description": "Orders belong to a store."
+    },
+    {
+      "from": { "table": "orders", "column": "order_date" },
+      "to": { "table": "calendar", "column": "date" },
+      "type": "many-to-one",
+      "description": "Orders can be grouped by calendar attributes through order_date."
+    },
+    {
+      "from": { "table": "orderrows", "column": "order_key" },
+      "to": { "table": "orders", "column": "order_key" },
+      "type": "many-to-one",
+      "description": "Order rows belong to an order."
+    },
+    {
+      "from": { "table": "orderrows", "column": "product_key" },
+      "to": { "table": "product", "column": "product_key" },
+      "type": "many-to-one",
+      "description": "Order rows reference products."
+    },
+    {
+      "from": { "table": "fx", "column": "from_currency" },
+      "to": { "table": "orders", "column": "currency_code" },
+      "type": "lookup",
+      "description": "FX rates can be used to convert order currency by date and currency code."
+    }
+  ],
+  "tables": [
+    {
+      "name": "calendar",
+      "description": "Date dimension for time-based grouping and filtering.",
+      "primaryKey": "date",
+      "recommendedUse": "Use for grouping sales or orders by year, quarter, month, weekday, or working day.",
+      "columns": [
+        { "name": "date", "type": "date", "description": "Calendar date." },
+        { "name": "date_key", "type": "number", "description": "Numeric date key." },
+        { "name": "year", "type": "number", "description": "Calendar year." },
+        { "name": "year_quarter", "type": "string", "description": "Year and quarter label." },
+        { "name": "year_quarter_number", "type": "number", "description": "Sortable year-quarter number." },
+        { "name": "quarter", "type": "string", "description": "Quarter label." },
+        { "name": "year_month", "type": "string", "description": "Year and month label." },
+        { "name": "year_month_short", "type": "string", "description": "Short year-month label." },
+        { "name": "year_month_number", "type": "number", "description": "Sortable year-month number." },
+        { "name": "month", "type": "string", "description": "Month name." },
+        { "name": "month_short", "type": "string", "description": "Short month name." },
+        { "name": "month_number", "type": "number", "description": "Month number." },
+        { "name": "day_of_week", "type": "string", "description": "Day-of-week name." },
+        { "name": "day_of_week_short", "type": "string", "description": "Short day-of-week name." },
+        { "name": "day_of_week_number", "type": "number", "description": "Sortable day-of-week number." },
+        { "name": "working_day", "type": "number", "description": "Working day indicator." },
+        { "name": "working_day_number", "type": "number", "description": "Working day sequence number." }
+      ]
+    },
+    {
+      "name": "customer",
+      "description": "Customer dimension with demographics and location.",
+      "primaryKey": "customer_key",
+      "recommendedUse": "Use for customer demographic, geography, age, occupation, and company analyses.",
+      "columns": [
+        { "name": "customer_key", "type": "number", "description": "Customer identifier." },
+        { "name": "geo_area_key", "type": "number", "description": "Geographic area identifier." },
+        { "name": "start_date", "type": "date", "description": "Customer record start date." },
+        { "name": "end_date", "type": "date", "description": "Customer record end date." },
+        { "name": "continent", "type": "string", "description": "Customer continent." },
+        { "name": "gender", "type": "string", "description": "Customer gender." },
+        { "name": "title", "type": "string", "description": "Customer title." },
+        { "name": "given_name", "type": "string", "description": "Customer given name." },
+        { "name": "middle_initial", "type": "string", "description": "Customer middle initial." },
+        { "name": "surname", "type": "string", "description": "Customer surname." },
+        { "name": "street_address", "type": "string", "description": "Customer street address." },
+        { "name": "city", "type": "string", "description": "Customer city." },
+        { "name": "state", "type": "string", "description": "Customer state abbreviation or region." },
+        { "name": "state_full", "type": "string", "description": "Customer full state or region name." },
+        { "name": "zip_code", "type": "string", "description": "Customer postal code." },
+        { "name": "country", "type": "string", "description": "Customer country code or short country." },
+        { "name": "country_full", "type": "string", "description": "Customer full country name." },
+        { "name": "birthday", "type": "date", "description": "Customer birth date." },
+        { "name": "age", "type": "number", "description": "Customer age." },
+        { "name": "occupation", "type": "string", "description": "Customer occupation." },
+        { "name": "company", "type": "string", "description": "Customer company." },
+        { "name": "vehicle", "type": "string", "description": "Customer vehicle." },
+        { "name": "latitude", "type": "number", "description": "Customer latitude." },
+        { "name": "longitude", "type": "number", "description": "Customer longitude." }
+      ]
+    },
+    {
+      "name": "fx",
+      "description": "Foreign exchange rates by date and currency pair.",
+      "primaryKey": ["date", "from_currency", "to_currency"],
+      "recommendedUse": "Use for currency conversion and exchange-rate trend analyses.",
+      "columns": [
+        { "name": "date", "type": "date", "description": "Exchange rate date." },
+        { "name": "from_currency", "type": "string", "description": "Source currency code." },
+        { "name": "to_currency", "type": "string", "description": "Target currency code." },
+        { "name": "exchange", "type": "number", "description": "Exchange rate." }
+      ]
+    },
+    {
+      "name": "orderrows",
+      "description": "Order line items with product, quantity, price, and cost.",
+      "primaryKey": ["order_key", "line_number"],
+      "recommendedUse": "Use when analysis needs order line detail rather than the denormalized sales table.",
+      "columns": [
+        { "name": "order_key", "type": "number", "description": "Order identifier." },
+        { "name": "line_number", "type": "number", "description": "Line number within the order." },
+        { "name": "product_key", "type": "number", "description": "Product identifier." },
+        { "name": "quantity", "type": "number", "description": "Purchased quantity." },
+        { "name": "unit_price", "type": "number", "description": "Unit list price." },
+        { "name": "net_price", "type": "number", "description": "Unit price after discount." },
+        { "name": "unit_cost", "type": "number", "description": "Unit cost." }
+      ]
+    },
+    {
+      "name": "orders",
+      "description": "Order headers with customer, store, date, delivery date, and currency.",
+      "primaryKey": "order_key",
+      "recommendedUse": "Use for order counts, delivery timing, customer order behavior, and currency grouping.",
+      "columns": [
+        { "name": "order_key", "type": "number", "description": "Order identifier." },
+        { "name": "customer_key", "type": "number", "description": "Customer identifier." },
+        { "name": "store_key", "type": "number", "description": "Store identifier." },
+        { "name": "order_date", "type": "date", "description": "Order date." },
+        { "name": "delivery_date", "type": "date", "description": "Delivery date." },
+        { "name": "currency_code", "type": "string", "description": "Order currency code." }
+      ]
+    },
+    {
+      "name": "product",
+      "description": "Product dimension with brand, category, price, cost, and physical attributes.",
+      "primaryKey": "product_key",
+      "recommendedUse": "Use for product, brand, manufacturer, category, subcategory, price, and cost analyses.",
+      "columns": [
+        { "name": "product_key", "type": "number", "description": "Product identifier." },
+        { "name": "product_code", "type": "string", "description": "Product code." },
+        { "name": "product_name", "type": "string", "description": "Product display name." },
+        { "name": "manufacturer", "type": "string", "description": "Product manufacturer." },
+        { "name": "brand", "type": "string", "description": "Product brand." },
+        { "name": "color", "type": "string", "description": "Product color." },
+        { "name": "weight_unit", "type": "string", "description": "Weight unit." },
+        { "name": "weight", "type": "number", "description": "Product weight." },
+        { "name": "cost", "type": "number", "description": "Product cost." },
+        { "name": "price", "type": "number", "description": "Product price." },
+        { "name": "category_key", "type": "number", "description": "Product category identifier." },
+        { "name": "category_name", "type": "string", "description": "Product category name." },
+        { "name": "sub_category_key", "type": "number", "description": "Product subcategory identifier." },
+        { "name": "sub_category_name", "type": "string", "description": "Product subcategory name." }
+      ]
+    },
+    {
+      "name": "sales",
+      "description": "Denormalized sales fact table with order, customer, store, product, date, currency, revenue, discount, cost, and margin fields.",
+      "primaryKey": ["order_key", "line_number"],
+      "recommendedUse": "Use as the default fact table for revenue, margin, discount, product performance, customer performance, store performance, and time-series sales analyses.",
+      "columns": [
+        { "name": "order_key", "type": "number", "description": "Order identifier." },
+        { "name": "line_number", "type": "number", "description": "Line number within the order." },
+        { "name": "order_date", "type": "date", "description": "Order date." },
+        { "name": "delivery_date", "type": "date", "description": "Delivery date." },
+        { "name": "customer_key", "type": "number", "description": "Customer identifier." },
+        { "name": "store_key", "type": "number", "description": "Store identifier." },
+        { "name": "product_key", "type": "number", "description": "Product identifier." },
+        { "name": "quantity", "type": "number", "description": "Purchased quantity." },
+        { "name": "unit_price", "type": "number", "description": "Unit list price." },
+        { "name": "net_price", "type": "number", "description": "Unit price after discount." },
+        { "name": "unit_cost", "type": "number", "description": "Unit cost." },
+        { "name": "currency_code", "type": "string", "description": "Sales currency code." },
+        { "name": "exchange_rate", "type": "number", "description": "Exchange rate used for sales amount conversion." },
+        { "name": "gross_revenue", "type": "number", "description": "Revenue before discounts." },
+        { "name": "net_revenue", "type": "number", "description": "Revenue after discounts." },
+        { "name": "unit_discount", "type": "number", "description": "Discount per unit." },
+        { "name": "discounts", "type": "number", "description": "Total discount amount." },
+        { "name": "cogs", "type": "number", "description": "Cost of goods sold." },
+        { "name": "gross_margin", "type": "number", "description": "Gross margin amount." },
+        { "name": "unit_margin", "type": "number", "description": "Margin per unit." }
+      ]
+    },
+    {
+      "name": "store",
+      "description": "Store dimension with geography, status, size, and open/close dates.",
+      "primaryKey": "store_key",
+      "recommendedUse": "Use for store performance, geography, active/closed store, and store-size analyses.",
+      "columns": [
+        { "name": "store_key", "type": "number", "description": "Store identifier." },
+        { "name": "store_code", "type": "number", "description": "Store code." },
+        { "name": "geo_area_key", "type": "number", "description": "Geographic area identifier." },
+        { "name": "country_code", "type": "string", "description": "Store country code." },
+        { "name": "country_name", "type": "string", "description": "Store country name." },
+        { "name": "state", "type": "string", "description": "Store state or region." },
+        { "name": "open_date", "type": "date", "description": "Store open date." },
+        { "name": "close_date", "type": "date", "description": "Store close date." },
+        { "name": "description", "type": "string", "description": "Store description." },
+        { "name": "square_meters", "type": "number", "description": "Store size in square meters." },
+        { "name": "status", "type": "string", "description": "Store status." }
+      ]
+    }
+  ]
+}
